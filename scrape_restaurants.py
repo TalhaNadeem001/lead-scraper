@@ -38,6 +38,8 @@ import urllib.parse
 from playwright.sync_api import sync_playwright
 from openai import OpenAI
 
+from dotenv import load_dotenv
+load_dotenv()
 # ── Config ────────────────────────────────────────────────────────────────────
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
