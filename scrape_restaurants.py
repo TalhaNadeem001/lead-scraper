@@ -40,7 +40,7 @@ from openai import OpenAI
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 ICP_SYSTEM_PROMPT = """You are a restaurant lead qualification assistant.
 
@@ -50,6 +50,7 @@ ICP CRITERIA:
 1. BUSY / HIGH ORDER VOLUME — The restaurant gets a lot of orders. Signals include:
    - High number of Google reviews (200+ is a strong signal, 500+ is very strong)
    - Review text mentioning busy periods, wait times, lunch/dinner rushes, online ordering
+   - Uses a premium POS system (Toast, Square, Clover, Olo, etc.) — strong indicator of volume
    - Popular or well-known locally
 
 2. YOUNGER DEMOGRAPHIC — The menu or brand appeals to a younger crowd (Gen Z / Millennials). 
@@ -68,6 +69,67 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
   "reason": "<1-2 sentence explanation of the verdict>",
   "menu_signals": ["list", "of", "youth-friendly", "menu", "items", "detected"]
 }"""
+
+
+# ── POS Platform fingerprints ─────────────────────────────────────────────────
+# Each entry: "Platform Name" -> list of URL/string patterns to search in raw HTML
+
+POS_PLATFORMS = {
+    "Toast":          ["toasttab.com", "pos.toasttab", "cdn.toasttab", "toast-pos"],
+    "Square":         ["squareup.com", "square.com/store", "squarespace.com/order",
+                       "order.squareup", "squareup.com/appointments"],
+    "Clover":         ["clover.com", "cloverordernow.com", "clover-cdn"],
+    "Olo":            ["olocdn.com", "olo.com", "olosdk"],
+    "TouchBistro":    ["touchbistro.com"],
+    "Lightspeed":     ["lightspeedpos.com", "lightspeedhq.com", "lsretail.com"],
+    "Revel":          ["revelsystems.com", "revel-pos"],
+    "SpotOn":         ["spoton.com", "spoton.net"],
+    "Heartland":      ["heartlandpaymentsystems.com", "heartland.us"],
+    "PAX":            ["paxstore.us", "pax.us"],
+    "ChowNow":        ["chownow.com", "chownowcdn.com"],
+    "Slice":          ["slicelife.com", "sliceup.com"],
+    "DoorDash Store": ["order.online/", "mydoordash.com", "doordash.com/store"],
+    "Uber Eats":      ["ubereats.com/store", "order.ubereats"],
+    "Grubhub":        ["grubhub.com/restaurant", "seamless.com/restaurant"],
+    "Bopple":         ["bopple.com"],
+    "Flipdish":       ["flipdish.com", "flipdishcdn"],
+    "HungerRush":     ["hungerrush.com", "revention.com"],
+    "NCR Aloha":      ["ncralohapoi.com", "ncr.com/aloha"],
+    "Lavu":           ["poslavu.com", "lavu.com"],
+    "Shopify":        ["cdn.shopify.com", "myshopify.com"],
+}
+
+
+def detect_pos_platform(html: str) -> dict:
+    """
+    Scan raw HTML for POS platform fingerprints.
+    Returns:
+      {
+        "platform": "Toast" | "Unknown",
+        "confidence": "high" | "none",
+        "all_detected": ["Toast", ...]   # in case multiple signals found
+      }
+    """
+    if not html:
+        return {"platform": "Unknown", "confidence": "none", "all_detected": []}
+
+    html_lower = html.lower()
+    detected = []
+
+    for platform, patterns in POS_PLATFORMS.items():
+        for pattern in patterns:
+            if pattern.lower() in html_lower:
+                detected.append(platform)
+                break  # one match per platform is enough
+
+    if detected:
+        return {
+            "platform": detected[0],          # primary (first match)
+            "confidence": "high",
+            "all_detected": detected,
+        }
+
+    return {"platform": "Unknown", "confidence": "none", "all_detected": []}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,27 +162,35 @@ def save_json(path: str, data):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-# ── Website text fetcher ──────────────────────────────────────────────────────
+# ── Website fetcher (text + raw HTML for POS scanning) ───────────────────────
 
-def fetch_website_text(page, url: str, max_chars: int = 4000) -> str:
-    """Visit a restaurant website and extract meaningful text (menu, about, home)."""
+def fetch_website(page, url: str, max_chars: int = 4000) -> tuple:
+    """
+    Visit a restaurant website and return (visible_text, raw_html).
+    raw_html is used for POS fingerprint scanning.
+    visible_text is passed to GPT for ICP analysis.
+    """
     if not url or "google" in url:
-        return ""
+        return "", ""
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=15000)
         page.wait_for_timeout(1500)
 
-        # Try to find menu or about links and grab those too
         text_parts = []
+        html_parts = []
 
-        # Get main page text
+        # Capture homepage text + HTML
         try:
             text_parts.append(page.inner_text("body"))
         except Exception:
             pass
+        try:
+            html_parts.append(page.content())
+        except Exception:
+            pass
 
-        # Try clicking menu link if present
-        for link_text in ["Menu", "Our Menu", "Food", "Order"]:
+        # Follow menu/order link if present — POS scripts often live there
+        for link_text in ["Menu", "Our Menu", "Food", "Order Online", "Order"]:
             try:
                 menu_link = page.query_selector(f'a:has-text("{link_text}")')
                 if menu_link:
@@ -131,18 +201,24 @@ def fetch_website_text(page, url: str, max_chars: int = 4000) -> str:
                     if href and "google" not in href:
                         page.goto(href, wait_until="domcontentloaded", timeout=10000)
                         page.wait_for_timeout(1000)
-                        text_parts.append(page.inner_text("body"))
+                        try:
+                            text_parts.append(page.inner_text("body"))
+                        except Exception:
+                            pass
+                        try:
+                            html_parts.append(page.content())
+                        except Exception:
+                            pass
                     break
             except Exception:
                 pass
 
-        combined = "\n".join(text_parts)
-        # Clean up whitespace
-        combined = re.sub(r'\s+', ' ', combined).strip()
-        return combined[:max_chars]
+        combined_text = re.sub(r'\s+', ' ', "\n".join(text_parts)).strip()
+        combined_html = "\n".join(html_parts)
+        return combined_text[:max_chars], combined_html
 
     except Exception as e:
-        return f"[Could not fetch website: {e}]"
+        return f"[Could not fetch website: {e}]", ""
 
 
 # ── Google Maps detail extractor ──────────────────────────────────────────────
@@ -332,6 +408,8 @@ def evaluate_icp(client: OpenAI, restaurant: dict, website_text: str) -> dict:
         f"Google rating: {restaurant.get('rating', 'N/A')}",
         f"Review count: {restaurant.get('review_count', 'unknown')}",
         f"Category hint from Maps: {restaurant.get('category_hint', 'N/A')}",
+        f"POS/Ordering platform detected: {restaurant.get('pos', {}).get('platform', 'Unknown')} "
+        f"(confidence: {restaurant.get('pos', {}).get('confidence', 'none')})",
     ]
 
     snippets = restaurant.get("review_snippets", [])
@@ -534,13 +612,22 @@ Examples:
             print(f"       ⭐ {detail.get('rating', '?')} | 💬 {detail.get('review_count', '?')} reviews")
             print(f"       📞 {detail.get('phone', '—')} | 🌐 {detail.get('website', '—')}")
 
-            # ── Fetch website text ──
+            # ── Fetch website text + HTML ──
             website_text = ""
             if detail.get("website"):
                 print(f"    🌐 Fetching website...")
-                website_text = fetch_website_text(website_page, detail["website"])
-                char_count = len(website_text)
-                print(f"       → Got {char_count} chars of website content")
+                website_text, website_html = fetch_website(website_page, detail["website"])
+                print(f"       → Got {len(website_text)} chars of content")
+
+                # ── POS detection (Layer 1: HTML fingerprint scan) ──
+                pos = detect_pos_platform(website_html)
+                detail["pos"] = pos
+                if pos["platform"] != "Unknown":
+                    all_found = ", ".join(pos["all_detected"])
+                    print(f"       💳 POS detected: {all_found} (confidence: {pos['confidence']})")
+                else:
+                    detail["pos"] = pos
+                    print(f"       💳 POS: not detected")
 
             # ── ICP evaluation ──
             print(f"    🤖 Evaluating ICP with GPT-4o-mini...")
@@ -555,6 +642,9 @@ Examples:
             print(f"       💬 {icp.get('reason', '')}")
             if icp.get("menu_signals"):
                 print(f"       🍔 Signals: {', '.join(icp['menu_signals'][:6])}")
+            pos_name = detail.get("pos", {}).get("platform", "Unknown")
+            if pos_name != "Unknown":
+                print(f"       💳 POS: {pos_name}")
 
             # ── Route to matched or rejected ──
             if icp.get("icp_match") and icp.get("score", 0) >= args.min_score:
@@ -593,14 +683,16 @@ Examples:
 
     if matched_this_run:
         print(f"ICP MATCHES THIS RUN:")
-        print(f"{'#':<4} {'Name':<30} {'Score':<7} {'Phone':<16} {'Address'}")
-        print("─" * 90)
+        print(f"{'#':<4} {'Name':<28} {'Score':<7} {'POS':<14} {'Phone':<16} {'Address'}")
+        print("─" * 95)
         for i, r in enumerate(matched_this_run, 1):
+            pos_name = r.get("pos", {}).get("platform", "—")
             print(
-                f"{i:<4} {r.get('name', '?')[:29]:<30} "
+                f"{i:<4} {r.get('name', '?')[:27]:<28} "
                 f"{r['icp'].get('score', 0)}/10   "
+                f"{pos_name[:13]:<14} "
                 f"{r.get('phone', '')[:15]:<16} "
-                f"{r.get('address', '')[:35]}"
+                f"{r.get('address', '')[:30]}"
             )
 
 

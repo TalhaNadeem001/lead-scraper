@@ -66,19 +66,20 @@ def score_bar(score: int, max_score: int = 10) -> str:
 # ── Sheet 1: Leads ────────────────────────────────────────────────────────────
 
 COLUMNS = [
-    ("Name",          28),
-    ("Address",       36),
-    ("Phone",         16),
-    ("Website",       32),
-    ("Email",         28),
-    ("Rating ⭐",      10),
-    ("Reviews 💬",     12),
-    ("ICP Score",     11),
-    ("Busy Score",    11),
-    ("Youth Score",   12),
-    ("Menu Signals",  38),
-    ("Reason",        48),
-    ("Maps URL",      14),
+    ("Name",           28),
+    ("Address",        36),
+    ("Phone",          16),
+    ("Website",        32),
+    ("Email",          28),
+    ("Rating ⭐",       10),
+    ("Reviews 💬",      12),
+    ("POS Platform",   14),
+    ("ICP Score",      11),
+    ("Busy Score",     11),
+    ("Youth Score",    12),
+    ("Menu Signals",   38),
+    ("Reason",         48),
+    ("Maps URL",       14),
 ]
 
 
@@ -88,7 +89,7 @@ def build_leads_sheet(ws, restaurants: list):
 
     # ── Title row ──
     ws.row_dimensions[1].height = 36
-    ws.merge_cells("A1:M1")
+    ws.merge_cells("A1:N1")
     title_cell = ws["A1"]
     title_cell.value = f"🍔  Restaurant Leads — ICP Matched  ({len(restaurants)} total)"
     title_cell.font = Font(name="Arial", bold=True, size=14, color=C_HEADER_FG)
@@ -97,7 +98,7 @@ def build_leads_sheet(ws, restaurants: list):
 
     # ── Generated date ──
     ws.row_dimensions[2].height = 16
-    ws.merge_cells("A2:M2")
+    ws.merge_cells("A2:N2")
     date_cell = ws["A2"]
     date_cell.value = f"Generated: {datetime.now().strftime('%B %d, %Y  %H:%M')}"
     date_cell.font = Font(name="Arial", size=9, italic=True, color="888888")
@@ -123,6 +124,8 @@ def build_leads_sheet(ws, restaurants: list):
     for row_idx, r in enumerate(restaurants, 4):
         ws.row_dimensions[row_idx].height = 52
 
+        pos         = r.get("pos", {})
+        pos_name    = pos.get("platform", "Unknown")
         icp     = r.get("icp", {})
         score   = icp.get("score", 0)
         busy    = icp.get("busy_score", 0)
@@ -141,6 +144,7 @@ def build_leads_sheet(ws, restaurants: list):
             r.get("email", ""),
             r.get("rating", ""),
             r.get("review_count", ""),
+            pos_name,
             score,
             busy,
             youth,
@@ -156,11 +160,20 @@ def build_leads_sheet(ws, restaurants: list):
             cell.border = thin_border()
 
             # Score columns get colour coding
-            if col_idx == 8:  # ICP Score
+            if col_idx == 8:  # POS Platform
+                # colour by known vs unknown
+                if val and val != "Unknown":
+                    cell.fill = hex_fill("D9EAD3")  # soft green
+                    cell.font = Font(name="Arial", size=9, bold=True, color="274E13")
+                else:
+                    cell.fill = hex_fill(row_bg)
+                    cell.font = Font(name="Arial", size=9, color="999999", italic=True)
+                cell.alignment = Alignment(horizontal="center", vertical="top")
+            elif col_idx == 9:  # ICP Score
                 cell.fill = score_bg
                 cell.font = Font(name="Arial", size=10, bold=True, color=score_fg)
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            elif col_idx in (9, 10):  # Busy / Youth score
+            elif col_idx in (10, 11):  # Busy / Youth score
                 cell.fill = score_bg
                 cell.font = Font(name="Arial", size=9, color=score_fg)
                 cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -171,7 +184,7 @@ def build_leads_sheet(ws, restaurants: list):
                 cell.alignment = Alignment(horizontal="center", vertical="top")
                 cell.number_format = "#,##0"
                 cell.fill = hex_fill(row_bg)
-            elif col_idx == 13:  # Maps URL — make it a hyperlink
+            elif col_idx == 14:  # Maps URL
                 if val:
                     cell.value = "Open ↗"
                     cell.hyperlink = val
@@ -312,7 +325,7 @@ def build_summary_sheet(ws, restaurants: list):
         for c in range(1, 4):
             ws.cell(k, c).fill = fill
 
-    # ── Leads with websites / phones ──
+    # ── Contact completeness ──
     has_web   = sum(1 for r in restaurants if r.get("website"))
     has_phone = sum(1 for r in restaurants if r.get("phone"))
     has_email = sum(1 for r in restaurants if r.get("email"))
@@ -336,6 +349,33 @@ def build_summary_sheet(ws, restaurants: list):
         val(m, 3, pct, "0%")
         for c in range(1, 4):
             ws.cell(m, c).fill = fill
+
+    # ── POS Platform breakdown ──
+    pos_counts = Counter(
+        r.get("pos", {}).get("platform", "Unknown") for r in restaurants
+    )
+    pos_start = contact_start + len(contact_rows) + 3
+    ws.row_dimensions[pos_start].height = 26
+    ws.merge_cells(f"A{pos_start}:D{pos_start}")
+    hdr(pos_start, 1, "  POS / ORDERING PLATFORM DETECTED")
+
+    lbl(pos_start + 1, 1, "Platform")
+    lbl(pos_start + 1, 2, "Count")
+    lbl(pos_start + 1, 3, "% of Leads")
+    ws.row_dimensions[pos_start + 1].height = 22
+    for col in range(1, 4):
+        ws.cell(pos_start + 1, col).fill = hex_fill(C_ACCENT)
+        ws.cell(pos_start + 1, col).font = Font(name="Arial", bold=True, size=10, color="FFFFFF")
+
+    for n, (platform, count) in enumerate(pos_counts.most_common(), pos_start + 2):
+        ws.row_dimensions[n].height = 20
+        pct = count / len(restaurants) if restaurants else 0
+        fill = hex_fill("D9EAD3" if platform != "Unknown" else (C_ROW_ALT if n % 2 == 0 else C_ROW_WHITE))
+        lbl(n, 1, platform)
+        val(n, 2, count, "#,##0")
+        val(n, 3, pct, "0%")
+        for c in range(1, 4):
+            ws.cell(n, c).fill = fill
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
