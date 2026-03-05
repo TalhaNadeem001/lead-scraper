@@ -3,3 +3,4 @@
 *.xlsx
 __pycache__/
 .env
+node_modules/
