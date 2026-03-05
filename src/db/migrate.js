@@ -73,7 +73,7 @@ export async function migrate() {
 }
 
 // Allow running directly: node src/db/migrate.js
-if (process.argv[1].endsWith('migrate.js')) {
+if (process.argv[1]?.endsWith('migrate.js')) {
   migrate()
     .then(() => process.exit(0))
     .catch((err) => { console.error(err); process.exit(1); });
