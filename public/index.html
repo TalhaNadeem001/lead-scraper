@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead CRM</title>
+  <style>
+    :root {
+      --bg:         #0d0d1a;
+      --surface:    #1a1a2e;
+      --surface2:   #16213e;
+      --border:     #2a2a4a;
+      --accent:     #e94560;
+      --text:       #eaeaea;
+      --muted:      #7777aa;
+      --green:      #4ade80;
+      --green-bg:   rgba(74,222,128,.12);
+      --yellow:     #fbbf24;
+      --yellow-bg:  rgba(251,191,36,.12);
+      --red:        #f87171;
+      --red-bg:     rgba(248,113,113,.12);
+      --blue:       #60a5fa;
+      --blue-bg:    rgba(96,165,250,.12);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }
+
+    /* ── Header ──────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 0 24px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .hstats { display: flex; gap: 28px; }
+    .hstat-val { font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1; }
+    .hstat-val.green  { color: var(--green); }
+    .hstat-val.yellow { color: var(--yellow); }
+    .hstat-val.red    { color: var(--red); }
+    .hstat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 2px; }
+
+    /* ── Toolbar ─────────────────────────────────────────── */
+    .toolbar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .toolbar input[type=text] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 7px 12px;
+      font-size: 13px;
+      width: 210px;
+      outline: none;
+    }
+    .toolbar input[type=text]:focus { border-color: var(--accent); }
+    .toolbar input::placeholder { color: var(--muted); }
+    .spacer { flex: 1; }
+
+    .fgroup { display: flex; gap: 4px; }
+    .fbtn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all .15s;
+    }
+    .fbtn:hover { border-color: var(--text); color: var(--text); }
+    .fbtn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .fbtn.active-yellow { background: var(--yellow-bg); border-color: var(--yellow); color: var(--yellow); }
+
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:hover  { background: #d03050; }
+    .btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--muted); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 6px 11px; }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .nearby-pill {
+      background: var(--green-bg);
+      border: 1px solid var(--green);
+      color: var(--green);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ── Table ───────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; padding: 16px 24px; }
+
+    table { width: 100%; border-collapse: collapse; min-width: 1160px; }
+    table:not(.has-drive) .drive-col { display: none; }
+
+    th {
+      background: var(--surface2);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      user-select: none;
+    }
+    th[data-col] { cursor: pointer; }
+    th[data-col]:hover { color: var(--text); }
+    th.sorted { color: var(--accent); }
+
+    tr { border-bottom: 1px solid var(--border); }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    tr.is-met td { opacity: .55; }
+    tr.is-met .lead-name { text-decoration: line-through; }
+
+    td { padding: 10px 12px; vertical-align: top; }
+
+    .met-cell { text-align: center; padding-top: 13px; width: 40px; }
+    .met-check { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+
+    .lead-name { font-weight: 600; font-size: 13px; }
+    .lead-signals { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    .badge {
+      display: inline-block;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 2px 8px;
+      min-width: 36px;
+      text-align: center;
+    }
+    .score-high { background: var(--green-bg);  color: var(--green);  border: 1px solid rgba(74,222,128,.3); }
+    .score-med  { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(251,191,36,.3); }
+    .score-low  { background: var(--red-bg);    color: var(--red);    border: 1px solid rgba(248,113,113,.3); }
+
+    .pos-badge { font-size: 11px; border-radius: 3px; padding: 2px 7px; }
+    .pos-known   { background: var(--green-bg); color: var(--green); }
+    .pos-unknown { color: var(--muted); font-style: italic; }
+
+    .drive-badge { font-size: 12px; font-weight: 600; border-radius: 4px; padding: 2px 8px; display: inline-block; }
+    .drive-near { background: var(--green-bg);  color: var(--green);  }
+    .drive-mid  { background: var(--yellow-bg); color: var(--yellow); }
+    .drive-far  { background: var(--red-bg);    color: var(--red);    }
+
+    .link-btn {
+      display: inline-block;
+      font-size: 11px;
+      color: var(--accent);
+      text-decoration: none;
+      border: 1px solid rgba(233,69,96,.3);
+      border-radius: 3px;
+      padding: 2px 7px;
+      margin-right: 4px;
+    }
+    .link-btn:hover { background: rgba(233,69,96,.1); }
+
+    .notes-text {
+      color: var(--muted);
+      cursor: pointer;
+      font-style: italic;
+      font-size: 12px;
+      min-height: 18px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1.5;
+    }
+    .notes-text:hover { background: var(--surface2); color: var(--text); }
+    .notes-input {
+      width: 100%;
+      min-width: 160px;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 12px;
+      resize: none;
+      font-family: inherit;
+      outline: none;
+    }
+
+    /* ── Visits cell ─────────────────────────────────────── */
+    .visits-cell { min-width: 140px; }
+    .visit-count-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .visit-count-badge {
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--blue-bg);
+      color: var(--blue);
+      border: 1px solid rgba(96,165,250,.3);
+      border-radius: 10px;
+      padding: 1px 8px;
+    }
+    .last-visit-label { font-size: 10px; color: var(--muted); }
+
+    /* follow-up badges */
+    .fu-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-bottom: 5px;
+    }
+    .fu-overdue  { background: var(--red-bg);    color: var(--red);    border: 1px solid rgba(248,113,113,.3); }
+    .fu-today    { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(251,191,36,.3); }
+    .fu-upcoming { background: var(--green-bg);  color: var(--green);  border: 1px solid rgba(74,222,128,.3); }
+
+    /* ── Empty / Loading ─────────────────────────────────── */
+    .empty-state { text-align: center; padding: 70px 24px; color: var(--muted); }
+    .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+    .loading-state { text-align: center; padding: 60px; color: var(--muted); }
+
+    /* ── Modals ──────────────────────────────────────────── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.72);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 480px;
+      max-width: 95vw;
+      box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    }
+    .modal-wide { width: 620px; }
+
+    .modal-hdr {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .modal-hdr h2 { font-size: 15px; font-weight: 700; }
+    .modal-subtitle { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 18px 22px; }
+    .modal-body-scroll { padding: 0 22px 18px; max-height: 68vh; overflow-y: auto; }
+    .modal-ftr {
+      padding: 14px 22px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .fgroup-form { margin-bottom: 15px; }
+    .fgroup-form label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 5px;
+    }
+    .finput {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+    .finput:focus { border-color: var(--accent); }
+    .fhint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+    .fcheck { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .fcheck input { accent-color: var(--accent); }
+    .fcheck label { font-size: 13px; color: var(--text); text-transform: none; letter-spacing: 0; }
+
+    /* ── Custom select styling ───────────────────────── */
+    select.finput {
+      display: block;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237777aa' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 34px;
+      cursor: pointer;
+    }
+    select.finput:focus { border-color: var(--accent); outline: none; }
+    select.finput option { background: #1a1a2e; color: var(--text); }
+
+    /* ── Visit form section ──────────────────────────────── */
+    .visit-form-wrap {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Visit modal two-view layout ────────────────────── */
+    .vm-hdr-right { display: flex; align-items: center; gap: 8px; }
+    .visit-view { display: none; flex-direction: column; }
+    .visit-view.active { display: flex; }
+
+    /* History view */
+    .vm-scroll {
+      padding: 16px 22px 20px;
+      overflow-y: auto;
+      max-height: calc(80vh - 80px);
+      min-height: 80px;
+    }
+    .visit-empty {
+      font-size: 13px;
+      color: var(--muted);
+      font-style: italic;
+      padding: 32px 0;
+      text-align: center;
+    }
+
+    /* Visit cards — left accent border shows outcome */
+    .visit-card {
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      border-radius: 0 8px 8px 0;
+      background: var(--surface2);
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+    .visit-card:last-child { margin-bottom: 0; }
+    .visit-card.vc-green  { border-left-color: var(--green); }
+    .visit-card.vc-red    { border-left-color: var(--red); }
+    .visit-card.vc-yellow { border-left-color: var(--yellow); }
+
+    .visit-card-hdr {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .visit-card-meta { display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap; }
+    .visit-card-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+    .v-type  { font-size: 13px; font-weight: 600; color: var(--text); }
+    .v-sep   { font-size: 11px; color: var(--border); }
+    .v-date  { font-size: 11px; color: var(--muted); }
+
+    .v-outcome { font-size: 11px; font-weight: 600; border-radius: 4px; padding: 2px 8px; white-space: nowrap; }
+    .v-outcome-interested     { background: var(--green-bg);  color: var(--green); }
+    .v-outcome-not_interested { background: var(--red-bg);    color: var(--red); }
+    .v-outcome-follow_up      { background: var(--yellow-bg); color: var(--yellow); }
+    .v-outcome-closed_won     { background: var(--green-bg);  color: var(--green); }
+    .v-outcome-closed_lost    { background: var(--red-bg);    color: var(--red); }
+
+    .v-notes { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 5px 0; white-space: pre-wrap; }
+    .v-followup {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      padding: 2px 8px;
+      margin-top: 6px;
+    }
+    .v-followup.overdue  { background: var(--red-bg);    color: var(--red); }
+    .v-followup.today    { background: var(--yellow-bg); color: var(--yellow); }
+    .v-followup.upcoming { background: var(--green-bg);  color: var(--green); }
+
+    .btn-del-visit {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1;
+    }
+    .btn-del-visit:hover { color: var(--red); background: var(--red-bg); }
+
+    /* Log form view */
+    .vm-form-body { padding: 18px 22px 0; overflow-y: auto; max-height: calc(80vh - 140px); }
+    .vm-form-ftr  {
+      padding: 14px 22px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    /* Scrape log */
+    .log-wrap { margin-top: 16px; display: none; }
+    .log-box {
+      background: #08080f;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      height: 210px;
+      overflow-y: auto;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+    }
+    .log-line { color: var(--muted); line-height: 1.65; white-space: pre-wrap; word-break: break-all; }
+    .log-line.ok   { color: var(--green); }
+    .log-line.bad  { color: var(--red); }
+    .log-line.info { color: var(--yellow); }
+
+    .pbar-wrap { background: var(--surface2); border-radius: 4px; height: 3px; margin-top: 10px; overflow: hidden; }
+    .pbar { height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s; }
+    .pbar.spin { width: 35%; animation: pslide 1.4s infinite linear; }
+    @keyframes pslide { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
+
+    .status-line { font-size: 12px; color: var(--muted); flex: 1; }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+    .dot.running { background: var(--yellow); animation: blink 1s infinite; }
+    .dot.done    { background: var(--green); }
+    .dot.err     { background: var(--red); }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+
+    .err-msg { font-size: 12px; color: var(--red); margin-top: 8px; display: none; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 16px;
+      font-size: 13px;
+      z-index: 400;
+      max-width: 300px;
+      animation: slideup .2s ease;
+    }
+    .toast.ok  { border-left: 3px solid var(--green); }
+    .toast.err { border-left: 3px solid var(--red); }
+    @keyframes slideup { from { transform:translateY(16px); opacity:0; } to { transform:none; opacity:1; } }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">Lead <span>CRM</span></div>
+  <div class="hstats">
+    <div>
+      <div class="hstat-val" id="s-total">—</div>
+      <div class="hstat-lbl">Total</div>
+    </div>
+    <div>
+      <div class="hstat-val green" id="s-met">—</div>
+      <div class="hstat-lbl">Met</div>
+    </div>
+    <div>
+      <div class="hstat-val yellow" id="s-left">—</div>
+      <div class="hstat-lbl">Remaining</div>
+    </div>
+    <div>
+      <div class="hstat-val red" id="s-overdue">—</div>
+      <div class="hstat-lbl">Overdue</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+<div class="toolbar">
+  <input type="text" id="search" placeholder="Search leads…">
+
+  <div class="fgroup">
+    <button class="fbtn active" data-f="all">All</button>
+    <button class="fbtn" data-f="unmet">Not Met</button>
+    <button class="fbtn" data-f="met">Met</button>
+    <button class="fbtn" data-f="followups" id="btn-f-followups">📅 Follow-ups</button>
+  </div>
+
+  <span id="nearby-pill" class="nearby-pill" style="display:none"></span>
+  <button id="btn-clear" class="btn btn-ghost" style="display:none">✕ Clear</button>
+
+  <div class="spacer"></div>
+  <button id="btn-nearby" class="btn btn-secondary">Filter Nearby</button>
+  <button id="btn-scrape" class="btn btn-primary">＋ Scrape Leads</button>
+</div>
+
+<!-- ── Table ───────────────────────────────────────────────────────────── -->
+<div class="table-wrap">
+  <div id="loading" class="loading-state">Loading leads…</div>
+  <div id="empty"   class="empty-state"   style="display:none">
+    <h3 id="empty-h">No leads yet</h3>
+    <p  id="empty-p">Click "Scrape Leads" to get started</p>
+  </div>
+
+  <table id="tbl" style="display:none">
+    <thead>
+      <tr>
+        <th class="met-cell" title="Met?">✓</th>
+        <th data-col="name">Name</th>
+        <th data-col="phone">Phone</th>
+        <th data-col="address">Address</th>
+        <th data-col="score">Score</th>
+        <th data-col="pos">POS</th>
+        <th data-col="rating">Rating</th>
+        <th data-col="reviews">Reviews</th>
+        <th data-col="drive" class="drive-col">Drive</th>
+        <th style="min-width:150px">Notes</th>
+        <th data-col="visits" style="min-width:150px">Visits</th>
+        <th>Links</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- ── Visits Modal ────────────────────────────────────────────────────── -->
+<div class="overlay" id="m-visits">
+  <div class="modal modal-wide">
+    <div class="modal-hdr">
+      <div>
+        <h2 id="vm-name">Visits</h2>
+        <div class="modal-subtitle" id="vm-sub"></div>
+      </div>
+      <div class="vm-hdr-right">
+        <button class="btn btn-primary btn-sm" id="btn-log-visit">+ Log Visit</button>
+        <button class="modal-close" data-close="m-visits">✕</button>
+      </div>
+    </div>
+
+    <!-- View: history (default) -->
+    <div id="vv-history" class="visit-view active">
+      <div class="vm-scroll" id="visit-history">
+        <div class="visit-empty">No visits logged yet.</div>
+      </div>
+    </div>
+
+    <!-- View: log form -->
+    <div id="vv-form" class="visit-view">
+      <div class="vm-form-body">
+        <div class="frow">
+          <div class="fgroup-form">
+            <label>Date &amp; Time</label>
+            <input class="finput" type="datetime-local" id="v-date">
+          </div>
+          <div class="fgroup-form">
+            <label>Type</label>
+            <select class="finput" id="v-type">
+              <option value="in_person">🤝 In Person</option>
+              <option value="phone_call">📞 Phone Call</option>
+              <option value="email">📧 Email</option>
+              <option value="other">💬 Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fgroup-form">
+            <label>Outcome</label>
+            <select class="finput" id="v-outcome">
+              <option value="">— No outcome yet</option>
+              <option value="interested">✅ Interested</option>
+              <option value="not_interested">❌ Not Interested</option>
+              <option value="follow_up">🔁 Needs Follow-up</option>
+              <option value="closed_won">🎉 Closed Won</option>
+              <option value="closed_lost">🚫 Closed Lost</option>
+            </select>
+          </div>
+          <div class="fgroup-form">
+            <label>Schedule Follow-up</label>
+            <input class="finput" type="datetime-local" id="v-followup">
+            <div class="fhint">Optional — leave blank if not needed</div>
+          </div>
+        </div>
+        <div class="fgroup-form">
+          <label>Notes</label>
+          <textarea class="finput" id="v-notes" rows="3" placeholder="What was discussed? Any key points…"></textarea>
+        </div>
+      </div>
+      <div class="vm-form-ftr">
+        <button class="btn btn-secondary" id="v-cancel">Cancel</button>
+        <button class="btn btn-primary" id="v-save">Log Visit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scrape Modal ────────────────────────────────────────────────────── -->
+<div class="overlay" id="m-scrape">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2>Scrape New Leads</h2>
+      <button class="modal-close" data-close="m-scrape">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fgroup-form">
+        <label>Location</label>
+        <input class="finput" id="sc-loc" placeholder='e.g. "dearborn MI"'>
+      </div>
+      <div class="frow">
+        <div class="fgroup-form">
+          <label>Limit</label>
+          <input class="finput" id="sc-limit" type="number" value="20" min="1" max="100">
+          <div class="fhint">Max restaurants to scrape</div>
+        </div>
+        <div class="fgroup-form">
+          <label>Min ICP Score</label>
+          <input class="finput" id="sc-score" type="number" value="6" min="1" max="10">
+          <div class="fhint">1–10 threshold</div>
+        </div>
+      </div>
+      <div class="fcheck">
+        <input type="checkbox" id="sc-reset">
+        <label for="sc-reset">Reset — clear previous results for this location</label>
+      </div>
+      <div class="log-wrap" id="log-wrap">
+        <div class="pbar-wrap"><div class="pbar spin" id="pbar"></div></div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <div class="status-line" id="sc-status"></div>
+      <button class="btn btn-secondary" data-close="m-scrape" id="sc-cancel">Cancel</button>
+      <button class="btn btn-primary" id="sc-start">Start Scraping</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Nearby Modal ────────────────────────────────────────────────────── -->
+<div class="overlay" id="m-nearby">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2>Filter Nearby</h2>
+      <button class="modal-close" data-close="m-nearby">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fgroup-form">
+        <label>Origin Address</label>
+        <input class="finput" id="nb-origin" placeholder='e.g. "7625 E Morrow Circle, Dearborn MI"'>
+      </div>
+      <div class="fgroup-form">
+        <label>Max Drive Time (minutes)</label>
+        <input class="finput" id="nb-max" type="number" value="30" min="1" max="120">
+      </div>
+      <div class="err-msg" id="nb-err"></div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-secondary" data-close="m-nearby">Cancel</button>
+      <button class="btn btn-primary" id="nb-apply">Apply Filter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────────
+const VISIT_TYPES = {
+  in_person:  { label: 'In Person',  icon: '🤝' },
+  phone_call: { label: 'Phone Call', icon: '📞' },
+  email:      { label: 'Email',      icon: '📧' },
+  other:      { label: 'Other',      icon: '💬' },
+};
+
+const OUTCOMES = {
+  '':               { label: '',               cls: '' },
+  interested:       { label: 'Interested',     cls: 'v-outcome-interested' },
+  not_interested:   { label: 'Not Interested', cls: 'v-outcome-not_interested' },
+  follow_up:        { label: 'Follow-up',      cls: 'v-outcome-follow_up' },
+  closed_won:       { label: 'Closed Won 🎉',  cls: 'v-outcome-closed_won' },
+  closed_lost:      { label: 'Closed Lost',    cls: 'v-outcome-closed_lost' },
+};
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let allLeads        = [];
+let displayLeads    = [];
+let nearbyOn        = false;
+let curFilter       = 'all';
+let curSearch       = '';
+let sortCol         = null;
+let sortDir         = 1;
+let pollTimer       = null;
+let logLen          = 0;
+let curVisitLeadId  = null;
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+fetchLeads();
+
+// ── Data ───────────────────────────────────────────────────────────────────────
+async function fetchLeads() {
+  try {
+    allLeads = await fetch('/api/leads').then((r) => r.json());
+    if (!nearbyOn) displayLeads = allLeads;
+    render();
+  } catch { toast('Failed to load leads', 'err'); }
+}
+
+async function patchLead(id, updates) {
+  await fetch(`/api/leads/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function render() {
+  const q    = curSearch.toLowerCase();
+  const pool = nearbyOn ? displayLeads : allLeads;
+  const now  = new Date();
+
+  let rows = pool.filter((r) => {
+    if (curFilter === 'met'       && !r.met) return false;
+    if (curFilter === 'unmet'     && r.met)  return false;
+    if (curFilter === 'followups' && !r.next_followup_at) return false;
+    if (q) {
+      const hay = [r.name, r.address, r.phone, r.notes,
+                   r.category_hint, r.pos?.platform, r.source]
+                  .join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (sortCol) {
+    rows = [...rows].sort((a, b) => {
+      const va = sval(a, sortCol), vb = sval(b, sortCol);
+      return va < vb ? -sortDir : va > vb ? sortDir : 0;
+    });
+  }
+
+  // Stats
+  const base    = nearbyOn ? displayLeads : allLeads;
+  const met     = base.filter((r) => r.met).length;
+  const overdue = base.filter((r) => r.next_followup_at && new Date(r.next_followup_at) < now).length;
+
+  document.getElementById('s-total').textContent   = base.length;
+  document.getElementById('s-met').textContent     = met;
+  document.getElementById('s-left').textContent    = base.length - met;
+  document.getElementById('s-overdue').textContent = overdue;
+
+  // Highlight follow-ups button when there are overdue
+  document.getElementById('btn-f-followups').classList.toggle('active-yellow', overdue > 0 && curFilter !== 'followups');
+
+  const loading = document.getElementById('loading');
+  const empty   = document.getElementById('empty');
+  const tbl     = document.getElementById('tbl');
+
+  loading.style.display = 'none';
+
+  if (rows.length === 0) {
+    tbl.style.display   = 'none';
+    empty.style.display = 'block';
+    document.getElementById('empty-h').textContent =
+      allLeads.length === 0 ? 'No leads yet' : 'No leads match filters';
+    document.getElementById('empty-p').textContent =
+      allLeads.length === 0 ? 'Click "Scrape Leads" to get started' : 'Try adjusting search or filters';
+    return;
+  }
+
+  empty.style.display = 'none';
+  tbl.style.display   = 'table';
+  tbl.classList.toggle('has-drive', rows.some((r) => r.drive_minutes != null));
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  rows.forEach((r) => tbody.appendChild(buildRow(r)));
+}
+
+function sval(r, col) {
+  switch (col) {
+    case 'name':    return (r.name    || '').toLowerCase();
+    case 'phone':   return  r.phone   || '';
+    case 'address': return  r.address || '';
+    case 'score':   return  r.icp?.score    || 0;
+    case 'pos':     return  r.pos?.platform || '';
+    case 'rating':  return  parseFloat(r.rating) || 0;
+    case 'reviews': return  r.review_count  || 0;
+    case 'drive':   return  r.drive_minutes ?? 9999;
+    case 'visits':  return  r.visit_count   || 0;
+    default:        return '';
+  }
+}
+
+function buildRow(r) {
+  const tr    = document.createElement('tr');
+  if (r.met) tr.classList.add('is-met');
+  tr.dataset.id = r._id;
+
+  const score  = r.icp?.score || 0;
+  const scls   = score >= 8 ? 'score-high' : score >= 6 ? 'score-med' : 'score-low';
+  const pos    = r.pos?.platform || 'Unknown';
+  const drive  = r.drive_minutes;
+  const dcls   = drive <= 15 ? 'drive-near' : drive <= 25 ? 'drive-mid' : 'drive-far';
+  const sigs   = (r.icp?.menu_signals || []).slice(0, 4).join(', ');
+
+  tr.innerHTML = `
+    <td class="met-cell">
+      <input class="met-check" type="checkbox" ${r.met ? 'checked' : ''}>
+    </td>
+    <td>
+      <div class="lead-name">${e(r.name || '—')}</div>
+      ${sigs ? `<div class="lead-signals">${e(sigs)}</div>` : ''}
+    </td>
+    <td style="color:var(--muted);white-space:nowrap">${e(r.phone || '—')}</td>
+    <td style="color:var(--muted);font-size:12px;max-width:190px">${e(r.address || '—')}</td>
+    <td>
+      <span class="badge ${scls}"
+            title="Busy: ${r.icp?.busy_score || 0}  Youth: ${r.icp?.youth_score || 0}">${score}</span>
+    </td>
+    <td>
+      <span class="pos-badge ${pos !== 'Unknown' ? 'pos-known' : 'pos-unknown'}">${e(pos)}</span>
+    </td>
+    <td style="text-align:center;white-space:nowrap">${r.rating || '—'}</td>
+    <td style="text-align:center">${r.review_count ? r.review_count.toLocaleString() : '—'}</td>
+    <td class="drive-col">
+      ${drive != null ? `<span class="drive-badge ${dcls}">${drive}m</span>` : '—'}
+    </td>
+    <td>
+      <div class="notes-text" title="Click to edit">${e(r.notes) || 'Add note…'}</div>
+    </td>
+    <td class="visits-cell">${buildVisitsCellHTML(r)}</td>
+    <td style="white-space:nowrap">
+      ${r.maps_url ? `<a class="link-btn" href="${r.maps_url}" target="_blank" rel="noopener">Maps</a>` : ''}
+      ${r.website  ? `<a class="link-btn" href="${r.website}"  target="_blank" rel="noopener">Web</a>`  : ''}
+    </td>
+  `;
+
+  tr.querySelector('.met-check').addEventListener('change', async function () {
+    r.met = this.checked;
+    tr.classList.toggle('is-met', r.met);
+    await patchLead(r._id, { met: r.met });
+    render();
+  });
+
+  tr.querySelector('.met-check').addEventListener('click', function () {
+    openVisitsModal(r);
+    showVisitView('vv-form');
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('v-date').value     = now.toISOString().slice(0, 16);
+    document.getElementById('v-type').value     = 'in_person';
+    document.getElementById('v-outcome').value  = '';
+    document.getElementById('v-followup').value = '';
+    document.getElementById('v-notes').value    = '';
+  });
+
+  tr.querySelector('.notes-text').addEventListener('click', function () {
+    editNotes(r, this);
+  });
+
+  tr.querySelector('.btn-open-visits').addEventListener('click', () => openVisitsModal(r));
+
+  return tr;
+}
+
+function buildVisitsCellHTML(r) {
+  const parts = [];
+
+  if (r.visit_count > 0) {
+    parts.push(`<div class="visit-count-row">
+      <span class="visit-count-badge">${r.visit_count} visit${r.visit_count !== 1 ? 's' : ''}</span>
+      ${r.last_visited_at ? `<span class="last-visit-label">${timeAgo(new Date(r.last_visited_at))}</span>` : ''}
+    </div>`);
+  }
+
+  if (r.next_followup_at) {
+    parts.push(followupBadgeHTML(r.next_followup_at));
+  }
+
+  parts.push(`<button class="btn btn-secondary btn-sm btn-open-visits">
+    ${r.visit_count > 0 ? '📋 View' : '+ Log'}
+  </button>`);
+
+  return parts.join('');
+}
+
+// ── Inline notes edit ─────────────────────────────────────────────────────────
+function editNotes(r, div) {
+  const ta = document.createElement('textarea');
+  ta.className = 'notes-input';
+  ta.value = r.notes || '';
+  ta.rows  = 3;
+  div.replaceWith(ta);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = ta.value.length;
+
+  const done = async () => {
+    r.notes = ta.value.trim();
+    const nd2 = document.createElement('div');
+    nd2.className = 'notes-text';
+    nd2.title = 'Click to edit';
+    nd2.textContent = r.notes || 'Add note…';
+    ta.replaceWith(nd2);
+    nd2.addEventListener('click', function () { editNotes(r, this); });
+    await patchLead(r._id, { notes: r.notes });
+  };
+
+  ta.addEventListener('blur', done);
+  ta.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') ta.blur(); });
+}
+
+// ── Toolbar ────────────────────────────────────────────────────────────────────
+document.getElementById('search').addEventListener('input', function () {
+  curSearch = this.value;
+  render();
+});
+
+document.querySelectorAll('.fbtn').forEach((b) =>
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.fbtn').forEach((x) => {
+      x.classList.remove('active');
+      x.classList.remove('active-yellow');
+    });
+    this.classList.add('active');
+    curFilter = this.dataset.f;
+    render();
+  }),
+);
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  nearbyOn     = false;
+  displayLeads = allLeads;
+  document.getElementById('nearby-pill').style.display = 'none';
+  document.getElementById('btn-clear').style.display   = 'none';
+  render();
+});
+
+// ── Sort ───────────────────────────────────────────────────────────────────────
+document.querySelectorAll('th[data-col]').forEach((th) =>
+  th.addEventListener('click', function () {
+    const col = this.dataset.col;
+    sortDir = sortCol === col ? -sortDir : 1;
+    sortCol = col;
+    document.querySelectorAll('th').forEach((t) => t.classList.remove('sorted'));
+    this.classList.add('sorted');
+    render();
+  }),
+);
+
+// ── Visits Modal ───────────────────────────────────────────────────────────────
+function showVisitView(id) {
+  document.querySelectorAll('.visit-view').forEach((v) => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function openVisitsModal(lead) {
+  curVisitLeadId = lead._id;
+  document.getElementById('vm-name').textContent = lead.name || 'Visit Log';
+  document.getElementById('vm-sub').textContent  = lead.address || '';
+  showVisitView('vv-history');
+  openModal('m-visits');
+  loadVisitHistory();
+}
+
+document.getElementById('btn-log-visit').addEventListener('click', () => {
+  // Reset form each time the user opens it
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('v-date').value     = now.toISOString().slice(0, 16);
+  document.getElementById('v-type').value     = 'in_person';
+  document.getElementById('v-outcome').value  = '';
+  document.getElementById('v-followup').value = '';
+  document.getElementById('v-notes').value    = '';
+  showVisitView('vv-form');
+});
+
+document.getElementById('v-cancel').addEventListener('click', () => showVisitView('vv-history'));
+
+async function loadVisitHistory() {
+  const histEl = document.getElementById('visit-history');
+  histEl.innerHTML = '<div class="visit-empty">Loading…</div>';
+
+  try {
+    const visits = await fetch(`/api/visits/${curVisitLeadId}`).then((r) => r.json());
+    histEl.innerHTML = '';
+
+    if (!visits.length) {
+      histEl.innerHTML = '<div class="visit-empty">No visits logged yet.</div>';
+      return;
+    }
+
+    visits.forEach((v) => histEl.appendChild(buildVisitCard(v)));
+  } catch {
+    histEl.innerHTML = '<div class="visit-empty" style="color:var(--red)">Failed to load visits.</div>';
+  }
+}
+
+function buildVisitCard(v) {
+  const card    = document.createElement('div');
+  const tInfo   = VISIT_TYPES[v.type]  ?? { label: v.type,  icon: '💬' };
+  const oInfo   = OUTCOMES[v.outcome]  ?? OUTCOMES[''];
+  const visitDt = new Date(v.visited_at);
+
+  // Left border colour based on outcome
+  const borderCls = {
+    interested:     'vc-green',
+    closed_won:     'vc-green',
+    not_interested: 'vc-red',
+    closed_lost:    'vc-red',
+    follow_up:      'vc-yellow',
+  }[v.outcome] ?? '';
+
+  card.className = `visit-card ${borderCls}`;
+
+  let followupHtml = '';
+  if (v.followup_at) {
+    const fd  = new Date(v.followup_at);
+    const cls = followupClass(fd);
+    const lbl = followupLabel(fd);
+    followupHtml = `<div><span class="v-followup ${cls}">📅 ${lbl}</span></div>`;
+  }
+
+  card.innerHTML = `
+    <div class="visit-card-hdr">
+      <div class="visit-card-meta">
+        <span class="v-type">${tInfo.icon} ${tInfo.label}</span>
+        <span class="v-sep">·</span>
+        <span class="v-date">${formatDateTime(visitDt)}</span>
+      </div>
+      <div class="visit-card-right">
+        ${v.outcome ? `<span class="v-outcome ${oInfo.cls}">${oInfo.label}</span>` : ''}
+        <button class="btn-del-visit" data-id="${v.id}" title="Delete visit">✕</button>
+      </div>
+    </div>
+    ${v.notes ? `<div class="v-notes">${e(v.notes)}</div>` : ''}
+    ${followupHtml}
+  `;
+
+  card.querySelector('.btn-del-visit').addEventListener('click', async function () {
+    if (!confirm('Delete this visit record?')) return;
+    await fetch(`/api/visits/${this.dataset.id}`, { method: 'DELETE' });
+    await loadVisitHistory();
+    await fetchLeads();
+  });
+
+  return card;
+}
+
+document.getElementById('v-save').addEventListener('click', async () => {
+  const btn = document.getElementById('v-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const payload = {
+      leadId:     curVisitLeadId,
+      visitedAt:  document.getElementById('v-date').value     || null,
+      type:       document.getElementById('v-type').value,
+      outcome:    document.getElementById('v-outcome').value,
+      followupAt: document.getElementById('v-followup').value || null,
+      notes:      document.getElementById('v-notes').value.trim(),
+    };
+
+    const res  = await fetch('/api/visits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.error) { toast(data.error, 'err'); return; }
+
+    toast('Visit logged ✓', 'ok');
+    showVisitView('vv-history');
+    await loadVisitHistory();
+    await fetchLeads();
+  } catch {
+    toast('Failed to save visit', 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Log Visit';
+  }
+});
+
+// ── Scrape Modal ───────────────────────────────────────────────────────────────
+document.getElementById('btn-scrape').addEventListener('click', () => {
+  openModal('m-scrape');
+  checkRunning();
+});
+
+document.getElementById('sc-start').addEventListener('click', async () => {
+  const loc = document.getElementById('sc-loc').value.trim();
+  if (!loc) { toast('Enter a location', 'err'); return; }
+
+  const payload = {
+    location:  loc,
+    limit:     parseInt(document.getElementById('sc-limit').value) || 20,
+    min_score: parseInt(document.getElementById('sc-score').value) || 6,
+    reset:     document.getElementById('sc-reset').checked,
+  };
+
+  const res  = await fetch('/api/scrape/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (data.error) { toast(data.error, 'err'); return; }
+
+  document.getElementById('log-wrap').style.display = 'block';
+  document.getElementById('log-box').innerHTML      = '';
+  document.getElementById('sc-start').disabled      = true;
+  document.getElementById('sc-cancel').textContent  = 'Close';
+  logLen = 0;
+  startPoll();
+});
+
+function checkRunning() {
+  fetch('/api/scrape/status').then((r) => r.json()).then((s) => {
+    if (s.running || s.lines?.length) {
+      document.getElementById('log-wrap').style.display = 'block';
+      logLen = 0;
+      applyStatus(s);
+      if (s.running) startPoll();
+    }
+  });
+}
+
+function startPoll() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const s = await fetch('/api/scrape/status').then((r) => r.json());
+    applyStatus(s);
+    if (!s.running) { clearInterval(pollTimer); fetchLeads(); }
+  }, 1800);
+}
+
+function applyStatus(s) {
+  const box  = document.getElementById('log-box');
+  const pbar = document.getElementById('pbar');
+  const sl   = document.getElementById('sc-status');
+
+  if (box && s.lines?.length > logLen) {
+    s.lines.slice(logLen).forEach((line) => {
+      const d = document.createElement('div');
+      d.className = 'log-line' +
+        (line.includes('✅') || line.includes('MATCH') ? ' ok'   :
+         line.includes('❌') || line.includes('REJECT') ? ' bad'  :
+         line.includes('📊') || line.includes('📍')     ? ' info' : '');
+      d.textContent = line;
+      box.appendChild(d);
+    });
+    box.scrollTop = box.scrollHeight;
+    logLen = s.lines.length;
+    document.getElementById('log-wrap').style.display = 'block';
+  }
+
+  if (pbar) pbar.className = s.running ? 'pbar spin' : 'pbar';
+  if (!s.running && pbar) pbar.style.width = '100%';
+
+  if (sl) {
+    if (s.running) {
+      sl.innerHTML = '<span class="dot running"></span>Running…';
+    } else if (s.error) {
+      sl.innerHTML = `<span class="dot err"></span>${s.error}`;
+    } else if (s.done) {
+      sl.innerHTML = '<span class="dot done"></span>Done';
+      document.getElementById('sc-start').disabled    = false;
+      document.getElementById('sc-start').textContent = 'Scrape Again';
+    }
+  }
+}
+
+// ── Nearby Modal ───────────────────────────────────────────────────────────────
+document.getElementById('btn-nearby').addEventListener('click', () => openModal('m-nearby'));
+
+document.getElementById('nb-apply').addEventListener('click', async () => {
+  const origin = document.getElementById('nb-origin').value.trim();
+  const maxMin = parseInt(document.getElementById('nb-max').value) || 30;
+  const errEl  = document.getElementById('nb-err');
+  const btn    = document.getElementById('nb-apply');
+
+  if (!origin) { errEl.textContent = 'Enter an origin address.'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  btn.disabled    = true;
+  btn.textContent = 'Calculating…';
+
+  try {
+    const res  = await fetch('/api/nearby', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ origin, max_minutes: maxMin }),
+    });
+    const data = await res.json();
+    if (data.error) { errEl.textContent = data.error; errEl.style.display = 'block'; return; }
+
+    displayLeads = data;
+    nearbyOn     = true;
+    document.getElementById('nearby-pill').textContent   = `Nearby ≤${maxMin} min (${data.length})`;
+    document.getElementById('nearby-pill').style.display = '';
+    document.getElementById('btn-clear').style.display   = '';
+    closeModal('m-nearby');
+    render();
+    toast(`${data.length} leads within ${maxMin} min`, 'ok');
+  } catch {
+    errEl.textContent = 'Request failed.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Apply Filter';
+  }
+});
+
+// ── Modal helpers ──────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('[data-close]').forEach((el) =>
+  el.addEventListener('click', () => closeModal(el.dataset.close)),
+);
+document.querySelectorAll('.overlay').forEach((ov) =>
+  ov.addEventListener('click', (ev) => { if (ev.target === ov) closeModal(ov.id); }),
+);
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function followupClass(date) {
+  const now      = new Date();
+  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+  if (date < now)      return 'overdue';
+  if (date <= todayEnd) return 'today';
+  return 'upcoming';
+}
+
+function followupLabel(date) {
+  const cls = followupClass(date);
+  if (cls === 'overdue')  return `Overdue · ${fmtDate(date)}`;
+  if (cls === 'today')    return `Due Today · ${fmtTime(date)}`;
+  return fmtDate(date) + (date.getHours() || date.getMinutes() ? ` · ${fmtTime(date)}` : '');
+}
+
+function followupBadgeHTML(dateStr) {
+  const d   = new Date(dateStr);
+  const cls = followupClass(d);
+  return `<div><span class="fu-badge fu-${cls}">📅 ${followupLabel(d)}</span></div>`;
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtTime(d) {
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+function formatDateTime(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + fmtTime(d);
+}
+
+function timeAgo(d) {
+  const diff = Date.now() - d.getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0)  return 'today';
+  if (days === 1)  return 'yesterday';
+  if (days < 30)   return `${days}d ago`;
+  if (days < 365)  return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+function toast(msg, type = 'ok') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+function e(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

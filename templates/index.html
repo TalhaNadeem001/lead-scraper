@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead CRM</title>
+  <style>
+    :root {
+      --bg:         #0d0d1a;
+      --surface:    #1a1a2e;
+      --surface2:   #16213e;
+      --border:     #2a2a4a;
+      --accent:     #e94560;
+      --text:       #eaeaea;
+      --muted:      #7777aa;
+      --green:      #4ade80;
+      --green-bg:   rgba(74,222,128,.12);
+      --yellow:     #fbbf24;
+      --yellow-bg:  rgba(251,191,36,.12);
+      --red:        #f87171;
+      --red-bg:     rgba(248,113,113,.12);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 0 24px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .hstats { display: flex; gap: 28px; }
+    .hstat-val { font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1; }
+    .hstat-val.green  { color: var(--green); }
+    .hstat-val.yellow { color: var(--yellow); }
+    .hstat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 2px; }
+
+    /* ── Toolbar ─────────────────────────────────────────────── */
+    .toolbar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .toolbar input[type=text] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 7px 12px;
+      font-size: 13px;
+      width: 210px;
+      outline: none;
+    }
+    .toolbar input[type=text]:focus { border-color: var(--accent); }
+    .toolbar input::placeholder { color: var(--muted); }
+    .spacer { flex: 1; }
+
+    .fgroup { display: flex; gap: 4px; }
+    .fbtn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all .15s;
+    }
+    .fbtn:hover { border-color: var(--text); color: var(--text); }
+    .fbtn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:hover  { background: #d03050; }
+    .btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--muted); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 6px 11px; }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .nearby-pill {
+      background: var(--green-bg);
+      border: 1px solid var(--green);
+      color: var(--green);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ── Table ──────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; padding: 16px 24px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1060px;
+    }
+    /* Hide drive col by default; shown via JS class */
+    table:not(.has-drive) .drive-col { display: none; }
+
+    th {
+      background: var(--surface2);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      user-select: none;
+    }
+    th[data-col] { cursor: pointer; }
+    th[data-col]:hover { color: var(--text); }
+    th.sorted { color: var(--accent); }
+
+    tr { border-bottom: 1px solid var(--border); }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    tr.is-met td { opacity: .5; }
+    tr.is-met .lead-name { text-decoration: line-through; }
+
+    td { padding: 10px 12px; vertical-align: top; }
+
+    .met-cell { text-align: center; padding-top: 13px; width: 40px; }
+    .met-check { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+
+    .lead-name { font-weight: 600; font-size: 13px; }
+    .lead-signals { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    .badge {
+      display: inline-block;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 2px 8px;
+      min-width: 36px;
+      text-align: center;
+    }
+    .score-high { background: var(--green-bg);  color: var(--green);  border: 1px solid rgba(74,222,128,.3); }
+    .score-med  { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(251,191,36,.3); }
+    .score-low  { background: var(--red-bg);    color: var(--red);    border: 1px solid rgba(248,113,113,.3); }
+
+    .pos-badge { font-size: 11px; border-radius: 3px; padding: 2px 7px; }
+    .pos-known   { background: var(--green-bg); color: var(--green); }
+    .pos-unknown { color: var(--muted); font-style: italic; }
+
+    .drive-badge { font-size: 12px; font-weight: 600; border-radius: 4px; padding: 2px 8px; display: inline-block; }
+    .drive-near { background: var(--green-bg);  color: var(--green);  }
+    .drive-mid  { background: var(--yellow-bg); color: var(--yellow); }
+    .drive-far  { background: var(--red-bg);    color: var(--red);    }
+
+    .link-btn {
+      display: inline-block;
+      font-size: 11px;
+      color: var(--accent);
+      text-decoration: none;
+      border: 1px solid rgba(233,69,96,.3);
+      border-radius: 3px;
+      padding: 2px 7px;
+      margin-right: 4px;
+    }
+    .link-btn:hover { background: rgba(233,69,96,.1); }
+
+    .notes-text {
+      color: var(--muted);
+      cursor: pointer;
+      font-style: italic;
+      font-size: 12px;
+      min-height: 18px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1.5;
+    }
+    .notes-text:hover { background: var(--surface2); color: var(--text); }
+    .notes-input {
+      width: 100%;
+      min-width: 160px;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 12px;
+      resize: none;
+      font-family: inherit;
+      outline: none;
+    }
+
+    /* ── Empty / Loading ─────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 70px 24px;
+      color: var(--muted);
+    }
+    .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+    .loading-state { text-align: center; padding: 60px; color: var(--muted); }
+
+    /* ── Modals ──────────────────────────────────────────────── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.72);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 480px;
+      max-width: 95vw;
+      box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    }
+    .modal-hdr {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-hdr h2 { font-size: 15px; font-weight: 700; }
+    .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 18px 22px; }
+    .modal-ftr {
+      padding: 14px 22px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .fgroup-form { margin-bottom: 15px; }
+    .fgroup-form label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 5px;
+    }
+    .finput {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+    .finput:focus { border-color: var(--accent); }
+    .fhint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .fcheck { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .fcheck input { accent-color: var(--accent); }
+    .fcheck label { font-size: 13px; color: var(--text); text-transform: none; letter-spacing: 0; }
+
+    /* Scrape log */
+    .log-wrap { margin-top: 16px; display: none; }
+    .log-box {
+      background: #08080f;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      height: 210px;
+      overflow-y: auto;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+    }
+    .log-line { color: var(--muted); line-height: 1.65; white-space: pre-wrap; word-break: break-all; }
+    .log-line.ok   { color: var(--green); }
+    .log-line.bad  { color: var(--red); }
+    .log-line.info { color: var(--yellow); }
+
+    .pbar-wrap { background: var(--surface2); border-radius: 4px; height: 3px; margin-top: 10px; overflow: hidden; }
+    .pbar { height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s; }
+    .pbar.spin { width: 35%; animation: pslide 1.4s infinite linear; }
+    @keyframes pslide { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
+
+    .status-line { font-size: 12px; color: var(--muted); flex: 1; }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+    .dot.running { background: var(--yellow); animation: blink 1s infinite; }
+    .dot.done    { background: var(--green); }
+    .dot.err     { background: var(--red); }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+
+    .err-msg { font-size: 12px; color: var(--red); margin-top: 8px; display: none; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 16px;
+      font-size: 13px;
+      z-index: 400;
+      max-width: 300px;
+      animation: slideup .2s ease;
+    }
+    .toast.ok  { border-left: 3px solid var(--green); }
+    .toast.err { border-left: 3px solid var(--red); }
+    @keyframes slideup { from { transform:translateY(16px); opacity:0; } to { transform:none; opacity:1; } }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">Lead <span>CRM</span></div>
+  <div class="hstats">
+    <div>
+      <div class="hstat-val" id="s-total">—</div>
+      <div class="hstat-lbl">Total</div>
+    </div>
+    <div>
+      <div class="hstat-val green" id="s-met">—</div>
+      <div class="hstat-lbl">Met</div>
+    </div>
+    <div>
+      <div class="hstat-val yellow" id="s-left">—</div>
+      <div class="hstat-lbl">Remaining</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+<div class="toolbar">
+  <input type="text" id="search" placeholder="Search leads…">
+
+  <div class="fgroup">
+    <button class="fbtn active" data-f="all">All</button>
+    <button class="fbtn" data-f="unmet">Not Met</button>
+    <button class="fbtn" data-f="met">Met</button>
+  </div>
+
+  <span id="nearby-pill" class="nearby-pill" style="display:none"></span>
+  <button id="btn-clear" class="btn btn-ghost" style="display:none">✕ Clear</button>
+
+  <div class="spacer"></div>
+  <button id="btn-nearby" class="btn btn-secondary">Filter Nearby</button>
+  <button id="btn-scrape" class="btn btn-primary">＋ Scrape Leads</button>
+</div>
+
+<!-- ── Table ───────────────────────────────────────────────────────────── -->
+<div class="table-wrap">
+  <div id="loading" class="loading-state">Loading leads…</div>
+  <div id="empty"   class="empty-state"   style="display:none">
+    <h3 id="empty-h">No leads yet</h3>
+    <p  id="empty-p">Click "Scrape Leads" to get started</p>
+  </div>
+
+  <table id="tbl" style="display:none">
+    <thead>
+      <tr>
+        <th class="met-cell" title="Met?">✓</th>
+        <th data-col="name">Name</th>
+        <th data-col="phone">Phone</th>
+        <th data-col="address">Address</th>
+        <th data-col="score" title="ICP Score">Score</th>
+        <th data-col="pos">POS</th>
+        <th data-col="rating">Rating</th>
+        <th data-col="reviews">Reviews</th>
+        <th data-col="drive" class="drive-col">Drive</th>
+        <th style="min-width:160px">Notes</th>
+        <th>Links</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- ── Scrape Modal ────────────────────────────────────────────────────── -->
+<div class="overlay" id="m-scrape">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2>Scrape New Leads</h2>
+      <button class="modal-close" data-close="m-scrape">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fgroup-form">
+        <label>Location</label>
+        <input class="finput" id="sc-loc" placeholder='e.g. "dearborn MI"'>
+      </div>
+      <div class="frow">
+        <div class="fgroup-form">
+          <label>Limit</label>
+          <input class="finput" id="sc-limit" type="number" value="20" min="1" max="100">
+          <div class="fhint">Max restaurants to scrape</div>
+        </div>
+        <div class="fgroup-form">
+          <label>Min ICP Score</label>
+          <input class="finput" id="sc-score" type="number" value="6" min="1" max="10">
+          <div class="fhint">1–10 threshold</div>
+        </div>
+      </div>
+      <div class="fcheck">
+        <input type="checkbox" id="sc-reset">
+        <label for="sc-reset">Reset — clear previous results for this location</label>
+      </div>
+
+      <div class="log-wrap" id="log-wrap">
+        <div class="pbar-wrap"><div class="pbar spin" id="pbar"></div></div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <div class="status-line" id="sc-status"></div>
+      <button class="btn btn-secondary" data-close="m-scrape" id="sc-cancel">Cancel</button>
+      <button class="btn btn-primary" id="sc-start">Start Scraping</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Nearby Modal ────────────────────────────────────────────────────── -->
+<div class="overlay" id="m-nearby">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2>Filter Nearby</h2>
+      <button class="modal-close" data-close="m-nearby">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fgroup-form">
+        <label>Origin Address</label>
+        <input class="finput" id="nb-origin" placeholder='e.g. "7625 E Morrow Circle, Dearborn MI"'>
+      </div>
+      <div class="fgroup-form">
+        <label>Max Drive Time (minutes)</label>
+        <input class="finput" id="nb-max" type="number" value="30" min="1" max="120">
+      </div>
+      <div class="err-msg" id="nb-err"></div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-secondary" data-close="m-nearby">Cancel</button>
+      <button class="btn btn-primary" id="nb-apply">Apply Filter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let allLeads     = [];
+let displayLeads = [];   // current view (may be nearby-filtered subset)
+let nearbyOn     = false;
+let curFilter    = "all";
+let curSearch    = "";
+let sortCol      = null;
+let sortDir      = 1;
+let pollTimer    = null;
+let logLen       = 0;
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+fetchLeads();
+
+// ── Data ───────────────────────────────────────────────────────────────────────
+async function fetchLeads() {
+  try {
+    const res = await fetch("/api/leads");
+    allLeads = await res.json();
+    if (!nearbyOn) displayLeads = allLeads;
+    render();
+  } catch { toast("Failed to load leads", "err"); }
+}
+
+async function patchLead(id, updates) {
+  await fetch("/api/lead", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, ...updates }),
+  });
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function render() {
+  const q = curSearch.toLowerCase();
+  const pool = nearbyOn ? displayLeads : allLeads;
+
+  let rows = pool.filter(r => {
+    if (curFilter === "met"   && !r.met) return false;
+    if (curFilter === "unmet" && r.met)  return false;
+    if (q) {
+      const hay = [r.name, r.address, r.phone, r.notes,
+                   r.category_hint, r.pos?.platform, r._source]
+                  .join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (sortCol) {
+    rows = [...rows].sort((a, b) => {
+      const va = sval(a, sortCol), vb = sval(b, sortCol);
+      return va < vb ? -sortDir : va > vb ? sortDir : 0;
+    });
+  }
+
+  // Stats (always over full displayLeads/allLeads)
+  const base = nearbyOn ? displayLeads : allLeads;
+  const met  = base.filter(r => r.met).length;
+  document.getElementById("s-total").textContent = base.length;
+  document.getElementById("s-met").textContent   = met;
+  document.getElementById("s-left").textContent  = base.length - met;
+
+  const loading = document.getElementById("loading");
+  const empty   = document.getElementById("empty");
+  const tbl     = document.getElementById("tbl");
+
+  loading.style.display = "none";
+
+  if (rows.length === 0) {
+    tbl.style.display   = "none";
+    empty.style.display = "block";
+    document.getElementById("empty-h").textContent =
+      allLeads.length === 0 ? "No leads yet" : "No leads match filters";
+    document.getElementById("empty-p").textContent =
+      allLeads.length === 0
+        ? 'Click "Scrape Leads" to get started'
+        : "Try adjusting the search or filters";
+    return;
+  }
+
+  empty.style.display = "none";
+  tbl.style.display   = "table";
+
+  const hasDrive = rows.some(r => r.drive_minutes != null);
+  tbl.classList.toggle("has-drive", hasDrive);
+
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+  rows.forEach(r => tbody.appendChild(buildRow(r)));
+}
+
+function sval(r, col) {
+  switch (col) {
+    case "name":    return (r.name || "").toLowerCase();
+    case "phone":   return r.phone  || "";
+    case "address": return r.address || "";
+    case "score":   return r.icp?.score || 0;
+    case "pos":     return r.pos?.platform || "";
+    case "rating":  return parseFloat(r.rating) || 0;
+    case "reviews": return r.review_count || 0;
+    case "drive":   return r.drive_minutes ?? 9999;
+    default:        return "";
+  }
+}
+
+function buildRow(r) {
+  const tr = document.createElement("tr");
+  if (r.met) tr.classList.add("is-met");
+  tr.dataset.id = r._id;
+
+  const score = r.icp?.score || 0;
+  const cls   = score >= 8 ? "score-high" : score >= 6 ? "score-med" : "score-low";
+  const pos   = r.pos?.platform || "Unknown";
+  const drive = r.drive_minutes;
+  const dcls  = drive <= 15 ? "drive-near" : drive <= 25 ? "drive-mid" : "drive-far";
+  const sigs  = (r.icp?.menu_signals || []).slice(0, 4).join(", ");
+
+  tr.innerHTML = `
+    <td class="met-cell">
+      <input class="met-check" type="checkbox" ${r.met ? "checked" : ""}>
+    </td>
+    <td>
+      <div class="lead-name">${e(r.name || "—")}</div>
+      ${sigs ? `<div class="lead-signals">${e(sigs)}</div>` : ""}
+    </td>
+    <td style="color:var(--muted);white-space:nowrap">${e(r.phone || "—")}</td>
+    <td style="color:var(--muted);font-size:12px;max-width:190px">${e(r.address || "—")}</td>
+    <td>
+      <span class="badge ${cls}"
+            title="Busy: ${r.icp?.busy_score||0}  Youth: ${r.icp?.youth_score||0}">${score}</span>
+    </td>
+    <td>
+      <span class="pos-badge ${pos !== "Unknown" ? "pos-known" : "pos-unknown"}">${e(pos)}</span>
+    </td>
+    <td style="text-align:center;white-space:nowrap">${r.rating || "—"}</td>
+    <td style="text-align:center">${r.review_count ? r.review_count.toLocaleString() : "—"}</td>
+    <td class="drive-col">
+      ${drive != null ? `<span class="drive-badge ${dcls}">${drive}m</span>` : "—"}
+    </td>
+    <td>
+      <div class="notes-text" title="Click to edit">${e(r.notes) || "Add note…"}</div>
+    </td>
+    <td style="white-space:nowrap">
+      ${r.maps_url ? `<a class="link-btn" href="${r.maps_url}" target="_blank" rel="noopener">Maps</a>` : ""}
+      ${r.website  ? `<a class="link-btn" href="${r.website}"  target="_blank" rel="noopener">Web</a>`  : ""}
+    </td>
+  `;
+
+  // Met toggle
+  tr.querySelector(".met-check").addEventListener("change", async function () {
+    r.met = this.checked;
+    tr.classList.toggle("is-met", r.met);
+    await patchLead(r._id, { met: r.met });
+    render(); // re-run stats
+  });
+
+  // Inline notes edit
+  const nd = tr.querySelector(".notes-text");
+  nd.addEventListener("click", () => editNotes(r, nd));
+
+  return tr;
+}
+
+function editNotes(r, div) {
+  const ta = document.createElement("textarea");
+  ta.className = "notes-input";
+  ta.value = r.notes || "";
+  ta.rows  = 3;
+  div.replaceWith(ta);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = ta.value.length;
+
+  const done = async () => {
+    r.notes = ta.value.trim();
+    const nd2 = document.createElement("div");
+    nd2.className = "notes-text";
+    nd2.title = "Click to edit";
+    nd2.textContent = r.notes || "Add note…";
+    ta.replaceWith(nd2);
+    nd2.addEventListener("click", () => editNotes(r, nd2));
+    await patchLead(r._id, { notes: r.notes });
+  };
+
+  ta.addEventListener("blur", done);
+  ta.addEventListener("keydown", e => { if (e.key === "Escape") ta.blur(); });
+}
+
+// ── Toolbar ────────────────────────────────────────────────────────────────────
+document.getElementById("search").addEventListener("input", function () {
+  curSearch = this.value;
+  render();
+});
+
+document.querySelectorAll(".fbtn").forEach(b => {
+  b.addEventListener("click", function () {
+    document.querySelectorAll(".fbtn").forEach(x => x.classList.remove("active"));
+    this.classList.add("active");
+    curFilter = this.dataset.f;
+    render();
+  });
+});
+
+document.getElementById("btn-clear").addEventListener("click", () => {
+  nearbyOn     = false;
+  displayLeads = allLeads;
+  document.getElementById("nearby-pill").style.display = "none";
+  document.getElementById("btn-clear").style.display   = "none";
+  render();
+});
+
+// ── Table sort ─────────────────────────────────────────────────────────────────
+document.querySelectorAll("th[data-col]").forEach(th => {
+  th.addEventListener("click", function () {
+    const col = this.dataset.col;
+    sortDir = sortCol === col ? -sortDir : 1;
+    sortCol = col;
+    document.querySelectorAll("th").forEach(t => t.classList.remove("sorted"));
+    this.classList.add("sorted");
+    render();
+  });
+});
+
+// ── Scrape Modal ───────────────────────────────────────────────────────────────
+document.getElementById("btn-scrape").addEventListener("click", () => {
+  open("m-scrape");
+  checkRunning();
+});
+
+document.getElementById("sc-start").addEventListener("click", async () => {
+  const loc = document.getElementById("sc-loc").value.trim();
+  if (!loc) { toast("Enter a location", "err"); return; }
+
+  const payload = {
+    location:  loc,
+    limit:     parseInt(document.getElementById("sc-limit").value) || 20,
+    min_score: parseInt(document.getElementById("sc-score").value) || 6,
+    reset:     document.getElementById("sc-reset").checked,
+  };
+
+  const res  = await fetch("/api/scrape", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (data.detail || data.error) { toast(data.detail || data.error, "err"); return; }
+
+  document.getElementById("log-wrap").style.display = "block";
+  document.getElementById("log-box").innerHTML      = "";
+  document.getElementById("sc-start").disabled     = true;
+  document.getElementById("sc-cancel").textContent  = "Close";
+  logLen = 0;
+
+  startPoll();
+});
+
+function checkRunning() {
+  fetch("/api/scrape/status")
+    .then(r => r.json())
+    .then(s => {
+      if (s.running || s.lines?.length) {
+        document.getElementById("log-wrap").style.display = "block";
+        logLen = 0;
+        applyStatus(s);
+        if (s.running) startPoll();
+      }
+    });
+}
+
+function startPoll() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const s = await fetch("/api/scrape/status").then(r => r.json());
+    applyStatus(s);
+    if (!s.running) {
+      clearInterval(pollTimer);
+      fetchLeads();
+    }
+  }, 1800);
+}
+
+function applyStatus(s) {
+  const box  = document.getElementById("log-box");
+  const pbar = document.getElementById("pbar");
+  const sl   = document.getElementById("sc-status");
+
+  if (box && s.lines?.length > logLen) {
+    s.lines.slice(logLen).forEach(line => {
+      const d = document.createElement("div");
+      d.className = "log-line" +
+        (line.includes("✅") || line.includes("MATCH") ? " ok"   :
+         line.includes("❌") || line.includes("REJECT") ? " bad"  :
+         line.includes("📊") || line.includes("📍") || line.includes("🍔") ? " info" : "");
+      d.textContent = line;
+      box.appendChild(d);
+    });
+    box.scrollTop = box.scrollHeight;
+    logLen = s.lines.length;
+    document.getElementById("log-wrap").style.display = "block";
+  }
+
+  if (pbar) pbar.className = s.running ? "pbar spin" : "pbar";
+  if (!s.running && pbar) pbar.style.width = "100%";
+
+  if (sl) {
+    if (s.running) {
+      sl.innerHTML = '<span class="dot running"></span>Running…';
+    } else if (s.error) {
+      sl.innerHTML = `<span class="dot err"></span>${s.error}`;
+    } else if (s.done) {
+      sl.innerHTML = '<span class="dot done"></span>Done';
+      document.getElementById("sc-start").disabled    = false;
+      document.getElementById("sc-start").textContent = "Scrape Again";
+    }
+  }
+}
+
+// ── Nearby Modal ───────────────────────────────────────────────────────────────
+document.getElementById("btn-nearby").addEventListener("click", () => open("m-nearby"));
+
+document.getElementById("nb-apply").addEventListener("click", async () => {
+  const origin = document.getElementById("nb-origin").value.trim();
+  const maxMin = parseInt(document.getElementById("nb-max").value) || 30;
+  const errEl  = document.getElementById("nb-err");
+  const btn    = document.getElementById("nb-apply");
+
+  if (!origin) { errEl.textContent = "Enter an origin address."; errEl.style.display = "block"; return; }
+  errEl.style.display = "none";
+
+  btn.disabled    = true;
+  btn.textContent = "Calculating…";
+
+  try {
+    const res  = await fetch("/api/nearby", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ origin, max_minutes: maxMin }),
+    });
+    const data = await res.json();
+    if (data.detail || data.error) {
+      errEl.textContent = data.detail || data.error;
+      errEl.style.display = "block";
+      return;
+    }
+    displayLeads = data;
+    nearbyOn     = true;
+    document.getElementById("nearby-pill").textContent = `Nearby ≤${maxMin} min (${data.length})`;
+    document.getElementById("nearby-pill").style.display = "";
+    document.getElementById("btn-clear").style.display   = "";
+    close("m-nearby");
+    render();
+    toast(`${data.length} leads within ${maxMin} min`, "ok");
+  } catch {
+    errEl.textContent = "Request failed.";
+    errEl.style.display = "block";
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = "Apply Filter";
+  }
+});
+
+// ── Modal helpers ──────────────────────────────────────────────────────────────
+function open(id)  { document.getElementById(id).classList.add("open"); }
+function close(id) { document.getElementById(id).classList.remove("open"); }
+
+document.querySelectorAll("[data-close]").forEach(el =>
+  el.addEventListener("click", () => close(el.dataset.close))
+);
+document.querySelectorAll(".overlay").forEach(ov =>
+  ov.addEventListener("click", ev => { if (ev.target === ov) close(ov.id); })
+);
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, type = "ok") {
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+// ── Escape HTML ────────────────────────────────────────────────────────────────
+function e(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+</script>
+</body>
+</html>
