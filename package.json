@@ -1,0 +1,21 @@
+{
+  "name": "lead-scraper",
+  "version": "0.1.0",
+  "description": "Restaurant lead scraper CRM",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/db/migrate.js",
+    "vercel-build": "echo 'No build step needed'"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "openai": "^4.77.0",
+    "pg": "^8.13.1",
+    "playwright": "^1.50.0"
+  }
+}
